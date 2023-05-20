@@ -4,6 +4,8 @@
 # Helper script for kernel maintenance in BirbOS #
 # ---------------------------------------------- #
 
+set -e
+
 println()
 {
     case $1 in
@@ -18,16 +20,8 @@ print_help()
 {
 	echo "Usage: kernel [OPTION]"
 	echo ""
-	echo "      --reinstall           reinstall the kernel"
-}
-
-root_check()
-{
-    if [ "$(whoami)" != "root" ]
-    then
-        println ERROR "This command needs to be run with root privileges"
-        exit 1
-    fi
+	echo "  -r  --reinstall           reinstall the kernel"
+	echo "  -u  --upgrade             upgrade the kernel"
 }
 
 nvidia_notification()
@@ -36,45 +30,115 @@ nvidia_notification()
 	if [ -n "$(grep "nvidia-drivers" /var/lib/birb/nest )" ]
 	then
 		println WARNING "To finish the installation, you need to reinstall nvidia drivers"
-		echo -e "You can reinstall the nvidia drivers by running \e[1mbirb nvidia-drivers\e[0m"
-		echo "Remember that you need to exit your window manager before you can reinstall the drivers"
+		echo "You can reinstall the nvidia drivers after a reboot (in the TTY)"
+		echo -e "with birb by running this command: \e[1mbirb nvidia-drivers\e[0m"
 	fi
 }
 
 reinstall()
 {
-	set -e
-
-	root_check
-
 	println "Compiling the kernel"
 	cd /usr/src/linux
-	make -j$(nproc)
+	sudo make -j$(nproc)
 
 	println "Installing kernel modules"
-	make modules_install
+	sudo make modules_install
 
 	println "Mounting the boot partition"
-	mount $BOOT_PARTITION /boot
+	[ -z "$(df | grep "/boot")" ] && sudo mount $BOOT_PARTITION /boot
 
 	println "Installing the BirbOS kernel files to /boot"
 	KERNEL_VERSION="$(file /usr/src/linux | awk '{print $5}' | xargs basename | cut -d'-' -f2)"
 
-	cp -iv /usr/src/linux/arch/x86/boot/bzImage /boot/vmlinuz-${KERNEL_VERSION}-birbos
-	cp -iv /usr/src/linux/System.map /boot/System.map-${KERNEL_VERSION}
+	sudo cp -iv /usr/src/linux/arch/x86/boot/bzImage /boot/vmlinuz-${KERNEL_VERSION}-birbos
+	sudo cp -iv /usr/src/linux/System.map /boot/System.map-${KERNEL_VERSION}
 
 	nvidia_notification
 }
 
-# Handle arguments
-while test $# -ge 0; do
-	case $1 in
-		--reinstall) reinstall ;;
+get_current_kernel_version()
+{
+	file /usr/src/linux | awk '{print $5}' | grep -o "[0-9]*\.[0-9]*\.[0-9]*"
+}
+
+install_new_kernel()
+{
+	SOURCE_BASENAME="$(basename $TARBALL_SOURCE)"
+
+	println "Downloading $SOURCE_BASENAME"
+	cd /var/cache/distfiles
+	[ ! -f $(basename $TARBALL_SOURCE) ] && sudo wget $TARBALL_SOURCE
+
+	TARBALL_PATH="/var/cache/distfiles/$SOURCE_BASENAME"
+
+	println "Extracting kernel sources to /usr/src"
+	cd /usr/src
+	sudo tar -xf $TARBALL_PATH
+
+	println "Updating the /usr/src/linux symlink"
+	sudo rm -fv /usr/src/linux
+	sudo ln -sv /usr/src/linux-$VERSION /usr/src/linux
+
+	println "Cleaning kernel source tree"
+	cd /usr/src/linux
+	sudo make mrproper
+
+	println "Copying kernel configurations"
+	sudo cp -v /usr/src/linux-$CURRENT_KERNEL_VERSION/.config /usr/src/linux-$VERSION/
+
+	println "Updating the kernel configuration file"
+	sudo make oldconfig
+
+	reinstall
+}
+
+upgrade()
+{
+	println "Checking kernel.org for new kernel releases..."
+
+	# Scrape the latest stable kernel release from kernel.org
+	LATEST_STABLE_HTML="$(curl -s https://kernel.org/ | grep -m 1 -A 3 "stable:")"
+
+	VERSION="$(echo "$LATEST_STABLE_HTML" | sed '2!d' | grep -o "[0-9]*\.[0-9]*\.[0-9]*")"
+	RELEASE_DATE="$(echo "$LATEST_STABLE_HTML" | sed '3!d' | grep -o "[0-9]*-[0-9]*-[0-9]")"
+	TARBALL_SOURCE="$(echo "$LATEST_STABLE_HTML" | tail -n1 | grep -o "https://cdn.kernel.org/pub/linux/kernel/v[0-9].x/linux-[0-9]*\.[0-9]*\.[0-9]*\.tar.xz")"
+
+	CURRENT_KERNEL_VERSION="$(get_current_kernel_version)"
+
+	# Check if the latest possible kernel is already installed
+	if [ "$VERSION" == "$CURRENT_KERNEL_VERSION" ]
+	then
+		echo "Kernel is already up-to-date!"
+		exit 0
+	fi
+
+	echo "New stable kernel release is available!"
+	echo -e "Version: \t$VERSION"
+	echo -e "Release date: \t$RELEASE_DATE"
+	echo ""
+	echo "Currently installed kernel version: $CURRENT_KERNEL_VERSION"
+	echo ""
+	read -p "Would you like to upgrade? [y/N]: " AGREE_KERNEL_UPGRADE
+
+	case $AGREE_KERNEL_UPGRADE in
+		y|Y)
+			install_new_kernel
+			;;
 
 		*)
-			print_help
-			exit 1
+			echo "Upgrade cancelled"
+			exit 0
 			;;
 	esac
-	exit 0
-done
+}
+
+# Handle arguments
+case $1 in
+	-r|--reinstall) reinstall ;;
+	-u|--upgrade) upgrade ;;
+
+	*)
+		print_help
+		exit 1
+		;;
+esac
