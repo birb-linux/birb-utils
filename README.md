@@ -1,2 +1,6 @@
 # birb-utils
 Miscellaneous utility scripts and programs made for BirbOS
+
+| Program | Description |
+| --- | --- |
+| kernel | Kernel management script |
