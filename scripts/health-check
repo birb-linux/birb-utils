@@ -1,0 +1,246 @@
+#!/bin/bash
+
+SCRIPT_DEPENDENCIES="test"
+AUTOFIX_DEPENDENCIES="sudo mkdir cut make"
+
+PACKAGE_MANAGER_PROGRAMS="birb birb_db birb_dep_solver birb_pkg_search"
+PACKAGE_MANAGER_FILES="/etc/birb.conf /etc/birb-sources.conf"
+
+# Troubleshooting templates
+troubleshoot_missing_package()
+{
+	echo "Troubleshooting steps:"
+	echo -e " 1. If the fakeroot of the package is still present"
+	echo -e "    you can try running \e[3mbirb --relink [package]\e[0m"
+	echo -e " 2. Attempt installing the programs with birb"
+	echo -e " 3. Copy paste the binary over from a working system"
+	echo -e "    and overwrite it by installing the package with birb"
+}
+
+troubleshoot_broken_birb()
+{
+	echo "Troubleshooting steps:"
+	echo -e " 1. Reinstall birb with \e[3mbirb --upgrade\e[0m"
+	echo -e " 2. Compile and install a debug build of birb manually by running"
+	echo -e "    the following commands as root:"
+	echo -e "     1. \e[3mcd /var/cache/distfiles/birb\e[0m"
+	echo -e "     2. make"
+	echo -e "     3. make install"
+	echo -e " 3. If the directory \e[3m/var/cache/distfiles/birb\e[0m doesn't exist"
+	echo -e "    you'll need to obtain it somehow from https://github.com/Toasterbirb/birb"
+	echo -e "    and proceed with step 2"
+}
+
+autofix_prompt()
+{
+	read -p "Attempt to autofix? (y/N): " AGREE_AUTOFIX
+	case $AGREE_AUTOFIX in
+		y|Y|yes|Yes|YES)
+			echo "Checking if programs needed for automatically fixing things are present"
+			unset $MISSING_DEPENDENCIES
+			for i in $AUTOFIX_DEPENDENCIES
+			do
+				check_program $i
+			done
+
+			if [ "$MISSING_DEPENDENCIES" == "true" ]
+			then
+				echo "Missing programs were found. You'll have to attempt fixing this issue own your own :("
+				exit 1
+			fi
+			;;
+		*) exit 1 ;;
+	esac
+}
+
+# Checks is a program exists at /usr/bin
+# Args: [ dependency ]
+check_program()
+{
+	if [ -f "/usr/bin/$1" ]
+	then
+		echo "[x] $1"
+	else
+		echo "[ ] $1"
+		MISSING_DEPENDENCIES="true"
+	fi
+}
+
+# Checks if a file exists at an absolute filepath
+# Args: [ file_path ]
+check_file()
+{
+	if [ -f "$1" ]
+	then
+		echo "[x] $1"
+	else
+		echo "[ ] $1"
+		MISSING_DEPENDENCIES="true"
+	fi
+}
+
+# Checks if a directory exists at an absolute filepath
+# Args: [ directory_path ]
+check_directory()
+{
+	if [ -d "$1" ]
+	then
+		echo "[x] $1"
+	else
+		echo "[ ] $1"
+		MISSING_DEPENDENCIES="true"
+	fi
+}
+
+script_dependency_check()
+{
+	echo "Making sure the system has everything this script needs..."
+
+	unset MISSING_DEPENDENCIES
+	for i in $SCRIPT_DEPENDENCIES
+	do
+		check_program $i
+	done
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo -e "Your system is missing programs that this script needs\n"
+		troubleshoot_missing_package
+		exit 1
+	fi
+}
+
+package_manager_integrity_check()
+{
+	echo "Checking if birb is healthy"
+
+	unset MISSING_DEPENDENCIES
+
+	# Check for birb programs
+	for i in $PACKAGE_MANAGER_PROGRAMS
+	do
+		check_program $i
+	done
+
+	# Check for birb files
+	for i in $PACKAGE_MANAGER_FILES
+	do
+		check_file $i
+	done
+
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo -e "Parts of the birb package manager seem to be missing\n"
+		troubleshoot_broken_birb
+
+		autofix_prompt
+
+		if [ -d "/var/cache/distfiles/birb" ]
+		then
+			cd /var/cache/distfiles/birb
+			sudo make
+			sudo make install
+		else
+			echo "/var/cache/distfiles/birb is missing. Can't autofix"
+			exit 1
+		fi
+	fi
+
+	# Check if the main birb directories exist
+	unset $MISSING_DEPENDENCIES
+	check_directory "/var/db/pkg"
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo -e "The package repository directory is missing!\n"
+		echo "You can fix this by running the following commands:"
+		echo " 1. mkdir -p /var/db/pkg"
+		echo " 2. birb --sync"
+
+		autofix_prompt
+
+		sudo mkdir -p /var/db/pkg
+		sudo birb --sync
+	fi
+
+
+	unset $MISSING_DEPENDENCIES
+	check_directory "/var/db/fakeroot"
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo "First of all, how did you run this script?"
+		echo "The fakeroot directory is missing, so your system is most likely"
+		echo "totally borked and beyond repair (unless you have a backup ready)"
+		exit 1
+	fi
+
+
+	# Check if the birb_db file exists
+	unset $MISSING_DEPENDENCIES
+	check_file "/var/lib/birb/birb_db"
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo -e "The birb database file is missing!\n"
+		echo "Troubleshooting steps:"
+		echo -e " 1. Run \e[1mbirb_db --reset\e[0m"
+		echo -e " 2. Consider restoring a backup"
+
+		autofix_prompt
+
+		sudo mkdir -p /var/lib/birb
+		sudo birb_db --reset
+	fi
+
+
+	# Check if the nest file exists
+	unset $MISSING_DEPENDENCIES
+	check_file "/var/lib/birb/nest"
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo -e "The nest file used by birb is missing!\n"
+		echo -e "This means that birb is unaware what packages were installed by the user"
+		echo -e "and running commands like \e[3mbirb --depclean\e[0m can break your installation"
+		echo -e ""
+		echo -e "To recover from this situation, you can dump your birb_db file"
+		echo -e "contents to the \e[3m/var/lib/birb/nest\e[0m file with the following command: "
+		echo -e ""
+		echo -e "birb_db --list | cut -d';' -f1 > /var/lib/birb/nest"
+
+		autofix_prompt
+
+		sudo mkdir -p /var/lib/birb
+		sudo birb_db --list | cut -d';' -f1 > /var/lib/birb/nest
+	fi
+
+	# Check if the package cache exists
+	unset $MISSING_DEPENDENCIES
+	check_file "/var/lib/birb/packages"
+
+	if [ "$MISSING_DEPENDENCIES" == "true" ]
+	then
+		echo -e "The birb package cache file is missing!\n"
+		echo -e "You can restore it by running \e[3mbirb --sync\e[0m"
+		
+		autofix_prompt
+
+		sudo mkdir -p /var/lib/birb
+		sudo birb --sync
+	fi
+}
+
+important_package_check()
+{
+	echo "Checking if all packages marked as important are installed"
+
+	# Get list of all applications
+}
+
+script_dependency_check
+printf "\n"
+package_manager_integrity_check
+printf "\n"
+important_package_check
