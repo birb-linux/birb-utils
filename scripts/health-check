@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_DEPENDENCIES="test"
+SCRIPT_DEPENDENCIES="test grep sed"
 AUTOFIX_DEPENDENCIES="sudo mkdir cut make"
 
 PACKAGE_MANAGER_PROGRAMS="birb birb_db birb_dep_solver birb_pkg_search"
@@ -234,9 +234,52 @@ package_manager_integrity_check()
 
 important_package_check()
 {
-	echo "Checking if all packages marked as important are installed"
+	echo -e "Checking if all packages marked as important are installed\n"
 
 	# Get list of all applications
+	PACKAGES="$(< /var/lib/birb/packages)"
+
+	let progress=1
+	let max_progress=$(echo "$PACKAGES" | wc -l)
+
+	unset MISSING_IMPORTANT_PACKAGES
+	for i in $PACKAGES
+	do
+		echo -e "\e[1A\e[KProcessing packages... [$progress/$max_progress]"
+		let progress+=1
+
+		# Source the seed file of the package from the correct
+		# repository directory
+		REPO_DIR="$(birb_db --locate-package "$i")"
+		source $REPO_DIR/$i/seed.sh
+
+		# Check for the "important" flag
+		RESULT="$(echo "$FLAGS" | grep -wo "important")"
+		[ -z "$RESULT" ] && continue
+
+		# Check if the package is installed
+		IS_INSTALLED="$(birb_db --is-installed $i)"
+		if [ "$IS_INSTALLED" == "no" ]
+		then
+			echo -e "\e[1A\e[K\e[31m[ ] $i\e[0m\n"
+			MISSING_IMPORTANT_PACKAGES="$MISSING_IMPORTANT_PACKAGES $i"
+		else
+			echo -e "\e[1A\e[K[x] $i\n"
+		fi
+	done
+
+	# Clean up the MISSING_IMPORTANT_PACKAGES string
+	MISSING_IMPORTANT_PACKAGES="$(echo $MISSING_IMPORTANT_PACKAGES | sed 's/^[[:space:]]*//')"
+
+	if [ -n "$MISSING_IMPORTANT_PACKAGES" ]
+	then
+		echo -e "Missing important packages were found:\n\n$MISSING_IMPORTANT_PACKAGES\n"
+
+		echo "You can attempt installing them with birb, but in some cases you might have to"
+		echo "resort to restoring backups since some of these packages are mission critical"
+		echo "for compiling and installing stuff"
+		exit 1
+	fi
 }
 
 script_dependency_check
@@ -244,3 +287,6 @@ printf "\n"
 package_manager_integrity_check
 printf "\n"
 important_package_check
+printf "\n"
+
+echo "Your BirbOS installation seems to be healthy ヽ(・∀・)ﾉ"
