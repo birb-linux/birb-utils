@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_DEPENDENCIES="test grep sed"
+SCRIPT_DEPENDENCIES="test grep sed find"
 AUTOFIX_DEPENDENCIES="sudo mkdir cut make"
 
 PACKAGE_MANAGER_PROGRAMS="birb birb_db birb_dep_solver birb_pkg_search"
@@ -282,11 +282,47 @@ important_package_check()
 	fi
 }
 
+verify_symlink_validity()
+{
+	echo -e "Checking if symlinks at directories like /usr are valid"
+
+	DIRECTORIES_TO_CHECK="/usr /sbin /lib64"
+
+	# Find all symlinks
+	echo -e "Finding all symlinks...\n"
+	SYMLINKS="$(find $DIRECTORIES_TO_CHECK -type l)"
+
+	let progress=0
+	let max_progress=$(echo "$SYMLINKS" | wc -l)
+
+	unset FOUND_BROKEN_SYMLINKS
+	for i in $SYMLINKS
+	do
+		echo -e "\e[1A\e[KVerifying symlinks... [$progress/$max_progress]"
+		let progress+=1
+
+		if [ ! -e "$i" ]
+		then
+			FOUND_BROKEN_SYMLINKS="true"
+			echo -e "\e[1A\e[K\e[31m$i\e[0m\n"
+		fi
+	done
+
+	if [ "$FOUND_BROKEN_SYMLINKS" == "true" ]
+	then
+		echo -e "\nBroken symlinks were found!"
+		echo -e "You can attempt troubleshooting them with the \e[3mfile\e[0m command"
+		exit 1
+	fi
+}
+
 script_dependency_check
 printf "\n"
 package_manager_integrity_check
 printf "\n"
 important_package_check
+printf "\n"
+verify_symlink_validity
 printf "\n"
 
 echo "Your BirbOS installation seems to be healthy ヽ(・∀・)ﾉ"
