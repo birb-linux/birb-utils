@@ -61,15 +61,78 @@ get_current_kernel_version()
 	file /usr/src/linux | awk '{print $5}' | grep -o "[0-9]*\.[0-9]*\.[0-9]*"
 }
 
+verify_shasum()
+{
+	println "Fetching sha256sums.asc from kernel.org"
+	REMOTE_SHASUM="$(curl -s https://cdn.kernel.org/pub/linux/kernel/v${MAJOR_VERSION}.x/sha256sums.asc | grep "linux-${VERSION}.tar.xz" | cut -d' ' -f1)"
+	echo $REMOTE_SHASUM
+
+	println "Verifying the shasum"
+	LOCAL_SHASUM="$(sha256sum $TARBALL_PATH | cut -d' ' -f1)"
+	echo $LOCAL_SHASUM
+
+	if [ "$LOCAL_SHASUM" != "$REMOTE_SHASUM" ]
+	then
+		println ERROR "The shasums didn't match! Removing the downloaded tarball..."
+		sudo rm -v $TARBALL_PATH
+		echo "Update cancelled"
+		exit 1
+	fi
+
+	echo "Shasum verification was successful!"
+}
+
+verify_signature()
+{
+	println "Adding developer GPG-keys"
+
+	# Linus Torvalds
+	gpg --tofu-policy good "ABAF 11C6 5A29 70B1 30AB  E3C4 79BE 3E43 0041 1886"
+
+	# Greg Kroah-Hartman
+	gpg --tofu-policy good "647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E"
+
+	# Sasha Levin
+	gpg --tofu-policy good "E27E 5D8A 3403 A2EF 6687  3BBC DEA6 6FF7 9777 2CDC"
+
+	for i in {torvalds,gregkh,sashal}@kernel.org
+	do
+		gpg --locate-keys $i
+	done
+
+	println "Verifying the signature"
+	TEMPDIR="$(mktemp -d /tmp/linux-signatureXXXXX)"
+	SIGNATURE_PATH="$TEMPDIR/linux-${VERSION}.tar.sign"
+	curl -s https://cdn.kernel.org/pub/linux/kernel/v${MAJOR_VERSION}.x/linux-${VERSION}.tar.sign > $SIGNATURE_PATH
+
+	COUNT="$(sudo xz -cd $TARBALL_PATH \
+		| gpg --verify --trust-model tofu --status-fd=1 $SIGNATURE_PATH - \
+		| grep -c -E '^\[GNUPG:\] (GOODSIG|VALIDSIG)')"
+
+	# Remove the signature file
+	rm -r $TEMPDIR
+
+	if [[ ${COUNT} -lt 2 ]]
+	then
+		println ERROR "Kernel source tarball signature could not be verified!"
+		exit 1
+	fi
+
+	echo "Signature verification was successful!"
+}
+
 install_new_kernel()
 {
 	SOURCE_BASENAME="$(basename $TARBALL_SOURCE)"
 
 	println "Downloading $SOURCE_BASENAME"
 	cd /var/cache/distfiles
-	[ ! -f $(basename $TARBALL_SOURCE) ] && sudo wget $TARBALL_SOURCE
+	[ ! -f $(basename $TARBALL_SOURCE) ] && sudo wget -q --show-progress $TARBALL_SOURCE
 
 	TARBALL_PATH="/var/cache/distfiles/$SOURCE_BASENAME"
+
+	verify_shasum
+	verify_signature
 
 	println "Extracting kernel sources to /usr/src"
 	cd /usr/src
@@ -100,6 +163,7 @@ upgrade()
 	LATEST_STABLE_HTML="$(curl -s https://kernel.org/ | grep -m 1 -A 3 "stable:")"
 
 	VERSION="$(echo "$LATEST_STABLE_HTML" | sed '2!d' | grep -o "[0-9]*\.[0-9]*\.[0-9]*")"
+	MAJOR_VERSION="$(echo $VERSION | cut -d'.' -f1)"
 	RELEASE_DATE="$(echo "$LATEST_STABLE_HTML" | sed '3!d' | grep -o "[0-9]*-[0-9]*-[0-9]")"
 	TARBALL_SOURCE="$(echo "$LATEST_STABLE_HTML" | tail -n1 | grep -o "https://cdn.kernel.org/pub/linux/kernel/v[0-9].x/linux-[0-9]*\.[0-9]*\.[0-9]*\.tar.xz")"
 
