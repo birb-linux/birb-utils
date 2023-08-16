@@ -6,4 +6,4 @@ Miscellaneous utility scripts and programs made for BirbOS
 | curl-md5     | Download a website/file and pipe it to md5sum |
 | health-check | System diagnostic scripts                     |
 | kernel       | Kernel management script                      |
-| nap          | Script that puts the computer to sleep        |
+| sus          | Script that puts the computer to sleep        |

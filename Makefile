@@ -1,6 +1,6 @@
 PREFIX=/usr/local
 
-SCRIPTS=kernel,health-check,curl-md5,nap
+SCRIPTS=kernel,health-check,curl-md5,sus
 
 all:
 
