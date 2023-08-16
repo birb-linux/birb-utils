@@ -1,0 +1,14 @@
+#!/bin/sh
+# Download a website with curl and pipe it directly to md5sum
+#
+# If xclip is installed, the md5 hash is automatically copied
+# to the clipboard
+#
+# This should help with figuring md5 hashes for source tarballs
+# when packaging new stuff
+
+[ -z "$1" ] && exit 1
+
+MD5="$(curl -s -o /dev/stdout -L $1 | md5sum | cut -d' ' -f1)"
+[ -f /usr/bin/xclip ] && echo -n $MD5 | xclip -selection clipboard
+echo $MD5

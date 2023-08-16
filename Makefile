@@ -1,4 +1,4 @@
 all:
 
 install:
-	cp ./scripts/{kernel,health-check} $(DESTDIR)/bin/
+	cp ./scripts/{kernel,health-check,curl-md5} $(DESTDIR)/bin/
