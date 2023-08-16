@@ -22,6 +22,8 @@ print_help()
 	echo ""
 	echo "  -r  --reinstall           reinstall the kernel"
 	echo "  -u  --upgrade             upgrade the kernel"
+	echo "  -l  --list                list kernels"
+	echo "  -s  --set [version]       change the current kernel to the given version"
 }
 
 nvidia_notification()
@@ -196,10 +198,54 @@ upgrade()
 	esac
 }
 
+list_kernels()
+{
+	KERNELS="$(ls /usr/src | grep -w "linux-[0-9]*\.[0-9]*\.[0-9]*")"
+	CURRENT_KERNEL="$(file /usr/src/linux | grep -ow "linux-[0-9]*\.[0-9]*\.[0-9]*")"
+
+	CHECKBOX_CHECKED="\[x\]"
+	CHECKBOX_NOT_CHECKED="\[ \]"
+
+	# Format the list as a checkbox list
+	KERNELS="$(echo "$KERNELS" | sed "s/^/${CHECKBOX_NOT_CHECKED} /")"
+
+	# Mark the currently installed kernel as checked
+	KERNELS="$(echo "$KERNELS" | sed "s/^${CHECKBOX_NOT_CHECKED} ${CURRENT_KERNEL}/${CHECKBOX_CHECKED} ${CURRENT_KERNEL}/")"
+
+	# Print out the kernel list
+	echo "$KERNELS" | sed 's/linux-//'
+}
+
+# Args: [kernel version]
+set_kernel()
+{
+	# Check if the given kernel version is installed
+	if [ ! -d /usr/src/linux-${1} ]
+	then
+		println ERROR "Kernel version $1 not available in /usr/src"
+		exit 1
+	fi
+
+	# Verify that the kernel we are changing to has a config file
+	if [ ! -f /usr/src/linux-${1}/.config ]
+	then
+		println ERROR "Kernel version $1 doesn't have a .config file"
+		exit 1
+	fi
+
+	# Switch the symlink over
+	sudo rm -v /usr/src/linux
+	sudo ln -sv /usr/src/linux-${1} /usr/src/linux
+
+	echo "Kernel switched to linux-${1}"
+}
+
 # Handle arguments
 case $1 in
 	-r|--reinstall) reinstall ;;
 	-u|--upgrade) upgrade ;;
+	-l|--list) list_kernels ;;
+	-s|--set) set_kernel $2 ;;
 
 	*)
 		print_help
