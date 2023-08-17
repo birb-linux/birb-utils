@@ -52,8 +52,8 @@ reinstall()
 	println "Installing the BirbOS kernel files to /boot"
 	KERNEL_VERSION="$(file /usr/src/linux | awk '{print $5}' | xargs basename | cut -d'-' -f2)"
 
-	sudo cp -iv /usr/src/linux/arch/x86/boot/bzImage /boot/vmlinuz-birbos
-	sudo cp -iv /usr/src/linux/System.map /boot/System.map-${KERNEL_VERSION}-birbos
+	sudo cp -v /usr/src/linux/arch/x86/boot/bzImage /boot/vmlinuz-birbos
+	sudo cp -v /usr/src/linux/System.map /boot/System.map-${KERNEL_VERSION}-birbos
 
 	nvidia_notification
 }
