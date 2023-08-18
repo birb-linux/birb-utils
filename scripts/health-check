@@ -6,6 +6,9 @@ AUTOFIX_DEPENDENCIES="sudo mkdir cut make"
 PACKAGE_MANAGER_PROGRAMS="birb birb_db birb_dep_solver birb_pkg_search"
 PACKAGE_MANAGER_FILES="/etc/birb.conf /etc/birb-sources.conf"
 
+# Source birb functions
+source /usr/lib/birb/birb_funcs
+
 # Troubleshooting templates
 troubleshoot_missing_package()
 {
