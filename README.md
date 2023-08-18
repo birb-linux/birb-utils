@@ -1,5 +1,5 @@
 # birb-utils
-Miscellaneous utility scripts and programs made for BirbOS
+Miscellaneous CLI utility scripts and programs made for BirbOS. This includes programs related to system maintenance, software packaging and other related tasks with minimal dependencies.
 
 | Program      | Description                                   |
 | ---          | ---                                           |
