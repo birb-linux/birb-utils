@@ -180,6 +180,8 @@ install_new_kernel()
 	then
 		println "Generating a default configuration"
 		make defconfig
+		echo "After you are done with customizing the default kernel configuration, run 'kernel -r' to compile the kernel."
+		exit 1
 	else
 		println "Copying kernel configurations"
 		sudo cp -v $OLD_CONFIG_PATH /usr/src/linux-$VERSION/
