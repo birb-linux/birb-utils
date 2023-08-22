@@ -46,6 +46,15 @@ reinstall()
 		exit 1
 	fi
 
+	# Check if there's a usable .config file
+	if [ ! -f /usr/src/linux/.config ]
+	then
+		println WARNING "There's no .config file in /usr/src/linux. Creating a new default one"
+		make defconfig
+		echo "New default config created. Customize it to your needs and after you are done, run 'kernel -r'"
+		exit 1
+	fi
+
 	println "Compiling the kernel"
 	cd /usr/src/linux
 	sudo make -j$(nproc)
