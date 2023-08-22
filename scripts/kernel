@@ -50,6 +50,7 @@ reinstall()
 	if [ ! -f /usr/src/linux/.config ]
 	then
 		println WARNING "There's no .config file in /usr/src/linux. Creating a new default one"
+		cd /usr/src/linux
 		make defconfig
 		echo "New default config created. Customize it to your needs and after you are done, run 'kernel -r'"
 		exit 1
