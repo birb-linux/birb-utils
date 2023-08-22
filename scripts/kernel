@@ -39,6 +39,13 @@ nvidia_notification()
 
 reinstall()
 {
+	# Check if there's any kernels to install
+	if [ ! -L /usr/src/linux ]
+	then
+		println ERROR "There are no kernels to install! Run 'kernel -u' to get one."
+		exit 1
+	fi
+
 	println "Compiling the kernel"
 	cd /usr/src/linux
 	sudo make -j$(nproc)
@@ -60,7 +67,14 @@ reinstall()
 
 get_current_kernel_version()
 {
-	file /usr/src/linux | awk '{print $5}' | grep -o "[0-9]*\.[0-9]*\.[0-9]*"
+	# If there's no kernel selected/installed at the moment,
+	# return 0.0.0 as the version
+	if [ ! -L /usr/src/linux ]
+	then
+		echo "0.0.0"
+	else
+		file /usr/src/linux | awk '{print $5}' | grep -o "[0-9]*\.[0-9]*\.[0-9]*"
+	fi
 }
 
 verify_shasum()
