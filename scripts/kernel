@@ -102,6 +102,11 @@ verify_signature()
 {
 	println "Adding developer GPG-keys"
 
+	for i in {torvalds,gregkh,sashal}@kernel.org
+	do
+		gpg --locate-keys $i
+	done
+
 	# Linus Torvalds
 	gpg --tofu-policy good "ABAF 11C6 5A29 70B1 30AB  E3C4 79BE 3E43 0041 1886"
 
@@ -110,11 +115,6 @@ verify_signature()
 
 	# Sasha Levin
 	gpg --tofu-policy good "E27E 5D8A 3403 A2EF 6687  3BBC DEA6 6FF7 9777 2CDC"
-
-	for i in {torvalds,gregkh,sashal}@kernel.org
-	do
-		gpg --locate-keys $i
-	done
 
 	println "Verifying the signature"
 	TEMPDIR="$(mktemp -d /tmp/linux-signatureXXXXX)"
