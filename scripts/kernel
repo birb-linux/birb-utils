@@ -172,21 +172,8 @@ install_new_kernel()
 	cd /usr/src/linux
 	sudo make mrproper
 
-	# If we didn't earlier have any kernels, we need to generate a default
-	# config file.
-	#
-	# This should also handle cases where the configs have gone missing
-	OLD_CONFIG_PATH="/usr/src/linux-$CURRENT_KERNEL_VERSION/.config"
-	if [ ! -f $OLD_CONFIG_PATH ]
-	then
-		println "Generating a default configuration"
-		make defconfig
-		echo "After you are done with customizing the default kernel configuration, run 'kernel -r' to compile the kernel."
-		exit 1
-	else
-		println "Copying kernel configurations"
-		sudo cp -v $OLD_CONFIG_PATH /usr/src/linux-$VERSION/
-	fi
+	println "Copying kernel configurations"
+	sudo cp -v /usr/src/linux-$CURRENT_KERNEL_VERSION/.config /usr/src/linux-$VERSION/
 
 	println "Updating the kernel configuration file"
 	sudo make oldconfig
