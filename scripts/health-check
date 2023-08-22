@@ -113,6 +113,34 @@ script_dependency_check()
 	fi
 }
 
+verify_coreutils()
+{
+	echo "Checking if there are any missing coreutils"
+
+	COREUTILS_BINARIES="base32 base64 b2sum basename basenc cat chcon chgrp chmod chown chroot cksum comm cp csplit cut date dd df dir dircolors dirname du echo env expand expr factor false fmt fold groups head hostid id install join link ln logname ls md5sum mkdir mkfifo mknod mktemp mv nice nl nohup nproc numfmt od paste pathchk pinky pr printenv printf ptx pwd readlink realpath rm rmdir runcon seq sha1sum sha224sum sha256sum sha384sum sha512sum shred shuf sleep sort split stat stdbuf stty sum sync tac tail tee test timeout touch tr true truncate tsort tty uname unexpand uniq unlink users vdir wc who whoami yes"
+
+	let progress=0
+	let max_progress=$(echo "$COREUTILS_BINARIES" | wc -w)
+	for i in $COREUTILS_BINARIES
+	do
+		echo -e "\e[1A\e[KVerifying coreutils... [$progress/$max_progress]"
+		let progress+=1
+
+		if [ ! -e "/usr/bin/$i" ] && [ ! -e "/usr/sbin/$i" ] && [ ! -e "/sbin/$i" ]
+		then
+			FOUND_MISSING_COREUTILS="true"
+			echo -e "\e[1A\e[K\e[31m$i\e[0m\n"
+		fi
+	done
+
+	if [ "$FOUND_MISSING_COREUTILS" == "true" ]
+	then
+		echo -e "\nMissing coreutils were found!"
+		echo -e "You can attempt to recover from this situation by either restoring a backup or possibly copy pasting the missing binaries from a working linux distribution"
+		exit 1
+	fi
+}
+
 package_manager_integrity_check()
 {
 	echo "Checking if birb is healthy"
@@ -320,6 +348,8 @@ verify_symlink_validity()
 }
 
 script_dependency_check
+printf "\n"
+verify_coreutils
 printf "\n"
 package_manager_integrity_check
 printf "\n"
