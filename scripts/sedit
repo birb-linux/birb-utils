@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# ----------------------------------------------- #
+# Helper script for package maintenance on BirbOS #
+# ----------------------------------------------- #
+
+# Note: sedit is short for seed edit
+
+# Source the config file
+source "/etc/birb-utils/sedit.conf"
+
+# Set default values
+REPO_DIR=${REPO_DIR:-$HOME/git/birbos-packages}
+
+# Open the package list in fzf
+# shellcheck disable=SC2012
+PACKAGE_TO_EDIT=$(ls "$REPO_DIR" | fzf)
+
+# Open the seed file of the chosen package in the currently chosen editor
+$EDITOR "$REPO_DIR/$PACKAGE_TO_EDIT/seed.sh"
