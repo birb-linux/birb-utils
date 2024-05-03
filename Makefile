@@ -7,7 +7,7 @@ all:
 install:
 	cp ./scripts/{${SCRIPTS}} $(DESTDIR)$(PREFIX)/bin/
 	mkdir -p $(DESTDIR)$(PREFIX)/etc/birb-utils
-	cp ./config/pkg_edit.conf $(DESTDIR)$(PREFIX)/etc/birb-utils/
+	cp ./config/* $(DESTDIR)$(PREFIX)/etc/birb-utils/
 
 uninstall:
 	rm -vf $(DESTDIR)$(PREFIX)/bin/{${SCRIPTS}}
