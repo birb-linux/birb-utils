@@ -1,17 +1,22 @@
 #!/bin/bash
 
-# ---------------------------------------------- #
-# Compare local package versions to the LFS book #
-# ---------------------------------------------- #
+# -------------------------------------------------------- #
+# Compare local package versions to the LFS and BLFS books #
+# -------------------------------------------------------- #
 
 readonly LFS_HTML="/tmp/lfs_book.html"
+readonly BLFS_HTML="/tmp/blfs_book.html"
+
+[ "$1" == "full" ] && BLFS_CHECK=true
 
 [ ! -f "$LFS_HTML" ] && curl 'https://www.linuxfromscratch.org/~thomas/multilib/chapter03/packages.html' > "$LFS_HTML"
+[ "$BLFS_CHECK" = true ] && [ ! -f "$BLFS_HTML" ] && curl 'https://www.linuxfromscratch.org/blfs/view/stable/index.html' > "$BLFS_HTML"
 
 # Fix some package names
 sed -i 's/Xz Utils/xz/' "$LFS_HTML"
 
 PACKAGE_LIST="$(grep term "$LFS_HTML" | awk '{print tolower($2) ";" $3}' | sed 's/class="term">//g; s/(//g; s/)//g; /Documentation/d')"
+[ "$BLFS_CHECK" = true ] && PACKAGE_LIST="$PACKAGE_LIST $(grep href "$BLFS_HTML" | sed -E 's/^.*">//g; /[[:space:]]/d; s/<\/a>//; /-/!d; s/(.*)-/\1;/' | awk '{print tolower($0)}')"
 
 OUTPUT_STR="Package;Local;LFS\n--------------;-----------;-----------"
 
