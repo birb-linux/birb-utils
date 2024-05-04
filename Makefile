@@ -1,6 +1,6 @@
 PREFIX=/usr/local
 
-SCRIPTS=kernel,health-check,curl-md5,sus,sedit
+SCRIPTS=kernel,health-check,curl-md5,sus,sedit,lfs-version-check
 
 all:
 

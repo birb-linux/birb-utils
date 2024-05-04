@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# ---------------------------------------------- #
+# Compare local package versions to the LFS book #
+# ---------------------------------------------- #
+
+readonly LFS_HTML="/tmp/lfs_book.html"
+
+[ ! -f "$LFS_HTML" ] && curl 'https://www.linuxfromscratch.org/~thomas/multilib/chapter03/packages.html' > "$LFS_HTML"
+
+# Fix some package names
+sed -i 's/Xz Utils/xz/' "$LFS_HTML"
+
+PACKAGE_LIST="$(grep term "$LFS_HTML" | awk '{print tolower($2) ";" $3}' | sed 's/class="term">//g; s/(//g; s/)//g; /Documentation/d')"
+
+OUTPUT_STR="Package;Local;LFS\n--------------;-----------;-----------"
+
+for PACKAGE_LINE in $PACKAGE_LIST
+do
+	PACKAGE="$(echo "$PACKAGE_LINE" | cut -d';' -f1)"
+	VERSION="$(echo "$PACKAGE_LINE" | cut -d';' -f2)"
+	INSTALLED_VERSION="$(birb_db --version "$PACKAGE")"
+
+	# Skip the package if the name doesn't exist in birb_db
+	if [ -z "$INSTALLED_VERSION" ]
+	then
+		continue
+	fi
+
+	if [[ "$VERSION" != "$INSTALLED_VERSION" ]]
+	then
+		OUTPUT_STR="$OUTPUT_STR\n$PACKAGE;$INSTALLED_VERSION;$VERSION"
+	fi
+done
+
+echo -e "$OUTPUT_STR" | column -t -s ';' -o " | "

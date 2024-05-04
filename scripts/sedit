@@ -6,6 +6,8 @@
 
 # Note: sedit is short for seed edit
 
+set -e
+
 # Source the config file
 source "/etc/birb-utils/sedit.conf"
 
@@ -18,3 +20,44 @@ PACKAGE_TO_EDIT=$(ls "$REPO_DIR" | fzf)
 
 # Open the seed file of the chosen package in the currently chosen editor
 $EDITOR "$REPO_DIR/$PACKAGE_TO_EDIT/seed.sh"
+
+# Check if any changes were made that could be committed
+cd "$REPO_DIR" || exit 0
+
+if git status | grep -q "Changes not staged for commit"
+then
+	while true
+	do
+		echo "Commit changes?"
+		echo "  b) version bump"
+		echo "  c) custom message"
+		echo "  q) don't do anything"
+		read -r -p "> " COMMIT_OPTION
+
+		case $COMMIT_OPTION in
+			b)
+				COMMIT_MESSAGE="Version bump: $PACKAGE_TO_EDIT"
+				;;
+
+			c) COMMIT_MESSAGE=""
+				;;
+
+			q) exit 0 ;;
+			*) echo "Invalid option" ; continue ;;
+		esac
+		break
+	done
+
+	# Stage the seed file
+	git add "$PACKAGE_TO_EDIT/seed.sh"
+
+	# If the commit message is empty, do a custom one
+	if [ -z "$COMMIT_MESSAGE" ]
+	then
+		git commit
+	else
+		git commit -m "$COMMIT_MESSAGE"
+	fi
+
+	git push
+fi
